@@ -113,6 +113,8 @@
     <div class="time" id="time">3:00</div>
   </div>
   <p class="small" id="rewardNote">じかんになったら つぎのもんだいが でるよ</p>
+  <button class="bigbtn" id="nextQBtn" style="font-size:24px;margin-top:10px">もう1もん とく！</button>
+  <p class="small" id="savedNote" style="margin-top:8px"></p>
 </section>
 
 <!-- おうちのひと：終了確認 -->
@@ -236,6 +238,8 @@ function renderStars(newOnes=0){
   for(let i=0;i<GOAL;i++){ const s=document.createElement("span"); s.textContent="⭐";
     if(i<points){ s.classList.add("on"); if(i>=points-newOnes) s.style.animationDelay=((i-(points-newOnes))*0.15)+"s"; else s.style.animation="none"; }
     el.appendChild(s); }
+  if(savedSec>0){ const b=document.createElement("b"); b.style.cssText="font-size:18px;align-self:center;margin-left:8px";
+    b.textContent="🎁"+fmt(savedSec); el.appendChild(b); }
 }
 
 /* ===== 問題 ===== */
@@ -337,14 +341,20 @@ function confetti(n){
 
 /* ===== ごほうびタイマー ===== */
 let rewardTick=null;
+let savedSec = parseInt(store("kg_saved")||"0",10) || 0;          // 途中でやめて残した時間
+let rewardTotal = parseInt(store("kg_rewardTotal")||String(REWARD_SEC),10) || REWARD_SEC;
+const fmt = s => Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
 function getRewardEnd(){
   return NATIVE ? parseInt(Android.rewardEndAt(),10)||0 : parseInt(store("kg_rewardEnd")||"0",10)||0;
 }
 function startReward(resumeEnd){
   let endAt = resumeEnd;
   if(!endAt){
-    if(NATIVE) endAt = parseInt(Android.startReward(REWARD_SEC),10);
-    else { endAt = Date.now()+REWARD_SEC*1000; store("kg_rewardEnd", endAt); }
+    // 前回残した時間があれば上乗せ
+    rewardTotal = REWARD_SEC + savedSec; savedSec = 0;
+    store("kg_saved", 0); store("kg_rewardTotal", rewardTotal);
+    if(NATIVE) endAt = parseInt(Android.startReward(rewardTotal),10);
+    else { endAt = Date.now()+rewardTotal*1000; store("kg_rewardEnd", endAt); }
     confetti(40);
     say("やったね！ スマホじかんだよ！");
     // Android：少ししたらホーム画面へ出して自由に使えるようにする
@@ -354,13 +364,14 @@ function startReward(resumeEnd){
   $("rewardNote").textContent = NATIVE
     ? "ほかのアプリで あそんでね。じかんになったら もどってくるよ"
     : "じかんになったら つぎのもんだいが でるよ";
+  $("savedNote").textContent = "のこりの じかんは つぎの スマホじかんに たせるよ";
   show("reward");
   clearInterval(rewardTick);
   const tick=()=>{
     const left=Math.max(0, endAt-Date.now());
     const s=Math.ceil(left/1000);
-    $("time").textContent=Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
-    $("ring").style.strokeDashoffset = 722.6*(1-left/(REWARD_SEC*1000));
+    $("time").textContent=fmt(s);
+    $("ring").style.strokeDashoffset = 722.6*(1-left/(rewardTotal*1000));
     if(left<=0) endReward(true);
   };
   tick(); rewardTick=setInterval(tick, 250);
@@ -401,6 +412,16 @@ $("startBtn").onclick=()=>{
   beginQuiz();
 };
 $("setupBtn").onclick=()=> Android.openOverlaySettings();
+/* スマホじかんの途中で もう1問：残り時間は次のごほうびに上乗せ */
+$("nextQBtn").onclick=()=>{
+  if(!inReward) return;
+  const end = getRewardEnd();
+  const left = Math.max(0, Math.ceil((end-Date.now())/1000));
+  savedSec += left; store("kg_saved", savedSec);
+  inReward=false; clearInterval(rewardTick);
+  if(NATIVE) Android.clearReward(); else store("kg_rewardEnd","0");
+  say("よし！ もんだいだよ", ()=> nextQuestion());
+};
 $("micBtn").onclick=()=>{ if(!listening) startListening(); };
 document.querySelectorAll("[data-pts]").forEach(b=> b.onclick=()=> award(parseInt(b.dataset.pts,10),""));
 $("hintBtn").onclick=()=>{ abortListening(); say(current.w, ()=> startListening()); };
