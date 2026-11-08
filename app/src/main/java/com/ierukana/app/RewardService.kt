@@ -37,7 +37,7 @@ class RewardService : Service() {
         const val ACTION_REWARD = "reward"           // ごほうび開始
         const val ACTION_LOCK = "lock"               // クイズ画面から抜けた
         const val ACTION_STOP = "stop"
-        private const val CH = "ierukana"
+        private const val CH = "ierukana_quiet"
         private const val NID = 1
         @Volatile var running = false
 
@@ -61,8 +61,11 @@ class RewardService : Service() {
         super.onCreate()
         running = true
         val nm = getSystemService(NotificationManager::class.java)
+        try { nm.deleteNotificationChannel("ierukana") } catch (_: Exception) {}
         nm.createNotificationChannel(
-            NotificationChannel(CH, "いえるかな？", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CH, "いえるかな？", NotificationManager.IMPORTANCE_LOW).apply {
+                setSound(null, null); enableVibration(false); setShowBadge(false)
+            }
         )
     }
 
@@ -74,7 +77,11 @@ class RewardService : Service() {
                 removeOverlay()
                 startTicking()
             }
-            ACTION_REWARD -> startTicking()
+            ACTION_REWARD -> {
+                handler.removeCallbacks(lockCheck)
+                removeOverlay()
+                startTicking()
+            }
             ACTION_LOCK -> {
                 handler.removeCallbacks(lockCheck)
                 handler.postDelayed(lockCheck, 700)
@@ -111,7 +118,8 @@ class RewardService : Service() {
                 return
             }
             updateNotification(statusText())
-            handler.postDelayed(this, 1000)
+            // 通知は10秒ごと、終了間際だけ細かくチェック
+            handler.postDelayed(this, if (left > 10_000) 10_000L - (left % 10_000) + 50 else 500L)
         }
     }
 
@@ -127,12 +135,15 @@ class RewardService : Service() {
 
     // ---------- 引き戻し ----------
     private fun bringBack() {
+        // スマホじかん中は絶対に割り込まない
+        if (Prefs.rewardRunning(this)) return
         if (MainActivity.visible) return
         showOverlay()
         launchQuiz()
     }
 
     private fun launchQuiz() {
+        if (Prefs.rewardRunning(this)) return
         try {
             startActivity(
                 Intent(this, MainActivity::class.java).addFlags(
@@ -211,8 +222,8 @@ class RewardService : Service() {
         val end = Prefs.rewardEnd(this)
         val left = end - System.currentTimeMillis()
         if (end == 0L || left <= 0) return "みまもりちゅう"
-        val s = ((left + 999) / 1000).toInt()
-        return "スマホじかん のこり %d:%02d".format(s / 60, s % 60)
+        val m = ((left + 59_999) / 60_000).toInt()
+        return "スマホじかん のこり やく%dぷん".format(m)
     }
 
     private fun buildNotification(text: String): Notification {

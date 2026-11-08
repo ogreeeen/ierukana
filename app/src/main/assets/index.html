@@ -289,7 +289,7 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
 
 function startListening(){
-  if(listening || !$("quiz").classList.contains("on")) return;
+  if(listening || inReward || !$("quiz").classList.contains("on")) return;
   gotSound=false; gotResult=false; alts=[]; micBlocked=false;
   if(NATIVE){
     Android.listen();
