@@ -128,7 +128,6 @@
 /* ===== 設定 ===== */
 const GOAL = 5;            // 何点でごほうび
 const REWARD_SEC = 180;    // ごほうび時間（秒）
-const LISTEN_MS = 7000;    // 1回の聞き取り時間
 
 /* ===== ことばリスト =====
    ok:   言えたら5点（ひらがな・カタカナ・漢字の表記ゆれ）
@@ -249,21 +248,29 @@ function nextQuestion(){
 }
 
 /* --- 聞き取り：共通の処理 --- */
+// 物音（声の気配）は表示だけ。点数は「ことばとして聞き取れた」ときだけ
 function onSound(){ gotSound=true; $("status").textContent="きいてるよ…👂"; }
+let micBlocked=false;
+const hasWord = list => list.some(t => norm(t).length>0);
 function onAlts(list, isFinal){
   if(gotResult || !current) return;
-  gotSound=true; alts=list;
+  list = (list||[]).filter(t => norm(t).length>0);
+  if(!list.length) return;
+  alts=list;
   const j=judge(current, alts);
   if(j.pts===5 || isFinal){ gotResult=true; stopListening(); award(j.pts, j.heard); }
 }
 function onListenEnd(){
   listening=false; $("micBtn").classList.remove("listening"); clearTimeout(listenTimer);
   if(gotResult || $("quiz").classList.contains("on")===false) return;
-  if(alts.length){ const j=judge(current,alts); gotResult=true; award(j.pts,j.heard); return; }
-  if(gotSound){ gotResult=true; award(1,""); return; }
-  if(!$("status").textContent.includes("マイク")) $("status").textContent="🎤をおして もういっかい いってみよう";
+  if(hasWord(alts)){ const j=judge(current,alts); gotResult=true; award(j.pts,j.heard); return; }
+  // ことばが聞き取れなかった（物音・無音）→ 点数なしで、そのまま聞き続ける
+  if(micBlocked) return;
+  $("status").textContent="いってみて！";
+  setTimeout(()=>{ if(!gotResult && !listening && $("quiz").classList.contains("on")) startListening(); }, 400);
 }
 function onListenError(kind){
+  micBlocked = true;
   if(kind==="permission") $("status").textContent="マイクが使えません。設定でマイクを許可してください";
   else if(kind==="unavailable") $("status").textContent="音声認識が使えません（Googleアプリを確認してください）";
 }
@@ -283,7 +290,7 @@ let rec = null;
 
 function startListening(){
   if(listening || !$("quiz").classList.contains("on")) return;
-  gotSound=false; gotResult=false; alts=[];
+  gotSound=false; gotResult=false; alts=[]; micBlocked=false;
   if(NATIVE){
     Android.listen();
   } else {
@@ -298,8 +305,8 @@ function startListening(){
     rec.onend = onListenEnd;
     try{ rec.start(); }catch(e){ $("status").textContent="🎤をおしてね"; return; }
   }
-  listening=true; $("micBtn").classList.add("listening"); $("status").textContent="いってみて！";
-  listenTimer=setTimeout(stopListening, LISTEN_MS);
+  listening=true; $("micBtn").classList.add("listening");
+  if(!gotSound) $("status").textContent="いってみて！";
 }
 function stopListening(){
   clearTimeout(listenTimer);
@@ -379,6 +386,10 @@ function endReward(playSound){
 /* ===== アプリが前面に戻ったとき（Android） ===== */
 window.onAppResume = () => {
   if(!started) return;
+  if($("quiz").classList.contains("on")){
+    listening=false; $("micBtn").classList.remove("listening");
+    setTimeout(()=>{ if(!listening && $("quiz").classList.contains("on")) startListening(); }, 600);
+  }
   if(NATIVE && !Android.hasOverlay()){ show("setup"); return; }
   const end = getRewardEnd();
   if(end > Date.now()){ if(!inReward || !$("reward").classList.contains("on")) startReward(end); }

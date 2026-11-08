@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -83,6 +84,7 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         visible = false
+        ui.removeCallbacks(unmute); unmute.run()
         sr?.cancel()
         super.onPause()
     }
@@ -159,7 +161,24 @@ class MainActivity : Activity() {
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
         }
+        muteStartBeep()
         sr!!.startListening(intent)
+    }
+
+    /** 聞き取りを繰り返すたびに鳴る開始音を、一瞬だけ消音して抑える */
+    private val unmute = Runnable {
+        try {
+            (getSystemService(AUDIO_SERVICE) as AudioManager)
+                .adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0)
+        } catch (_: Exception) {}
+    }
+    private fun muteStartBeep() {
+        try {
+            (getSystemService(AUDIO_SERVICE) as AudioManager)
+                .adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0)
+            ui.removeCallbacks(unmute)
+            ui.postDelayed(unmute, 700)
+        } catch (_: Exception) {}
     }
 
     // ---------- HTML から呼べる関数 ----------
