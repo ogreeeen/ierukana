@@ -17,6 +17,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import android.view.View
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
@@ -61,8 +62,10 @@ class MainActivity : Activity() {
         tts = TextToSpeech(this) { st ->
             if (st == TextToSpeech.SUCCESS) {
                 tts?.setLanguage(Locale.JAPAN)
-                tts?.setPitch(1.3f)
-                tts?.setSpeechRate(0.9f)
+                // 高すぎる声・遅すぎる速さは機械っぽく聞こえるので控えめに
+                tts?.setPitch(1.08f)
+                tts?.setSpeechRate(0.95f)
+                pickVoice()
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) {}
                     override fun onDone(id: String?) { js("window.onNativeSaid&&onNativeSaid(${q(id ?: "")})") }
@@ -120,6 +123,35 @@ class MainActivity : Activity() {
     private fun js(code: String) = ui.post { web.evaluateJavascript(code, null) }
     private fun speech(type: String, data: String = "") =
         js("window.onNativeSpeech&&onNativeSpeech(${q(type)},${q(data)})")
+
+    // ---------- 声えらび ----------
+    /** 端末にある日本語の声（品質の高い順、ダウンロード済みのみ） */
+    private fun jaVoices(): List<Voice> = try {
+        (tts?.voices ?: emptySet()).filter {
+            it.locale.language == "ja" &&
+            !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+        }.sortedWith(compareByDescending<Voice> { it.quality }
+            .thenBy { it.isNetworkConnectionRequired }
+            .thenBy { it.name })
+    } catch (_: Exception) { emptyList() }
+
+    private fun pickVoice() {
+        val list = jaVoices()
+        if (list.isEmpty()) return
+        val saved = getSharedPreferences("ierukana", MODE_PRIVATE).getString("voice", null)
+        val v = list.firstOrNull { it.name == saved } ?: list.first()
+        try { tts?.voice = v } catch (_: Exception) {}
+    }
+
+    private fun nextVoice(): String {
+        val list = jaVoices()
+        if (list.isEmpty()) return ""
+        val cur = list.indexOfFirst { it.name == tts?.voice?.name }
+        val v = list[(cur + 1) % list.size]
+        try { tts?.voice = v } catch (_: Exception) {}
+        getSharedPreferences("ierukana", MODE_PRIVATE).edit().putString("voice", v.name).apply()
+        return "${(list.indexOf(v) + 1)}/${list.size}"
+    }
 
     // ---------- 音声認識 ----------
     private fun startRecognition() {
@@ -189,6 +221,7 @@ class MainActivity : Activity() {
             if (ttsReady) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
             else js("window.onNativeSaid&&onNativeSaid(${q(id)})")
         }
+        @JavascriptInterface fun nextVoice(): String = ctx.nextVoice()
         @JavascriptInterface fun listen() = ui.post { startRecognition() }
         @JavascriptInterface fun stopListen() = ui.post { sr?.stopListening() }
         @JavascriptInterface fun cancelListen() = ui.post { sr?.cancel() }

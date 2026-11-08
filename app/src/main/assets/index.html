@@ -87,6 +87,7 @@
     <button data-pts="3">○3</button>
     <button data-pts="1">△1</button>
     <button id="hintBtn">🔊</button>
+    <button id="voiceBtn">🗣</button>
     <button id="skipBtn">⏭</button>
     <button id="exitBtn">🚪</button>
   </div>
@@ -134,22 +135,22 @@ const REWARD_SEC = 180;    // ごほうび時間（秒）
    near: 3点にする幼児語や言い換え */
 const WORDS = [
   {e:"🍎", w:"りんご",   ok:["りんご","林檎"], near:["りんごちゃん"]},
-  {e:"🍌", w:"ばなな",   ok:["ばなな"], near:["なな","ばな"]},
+  {e:"🍌", w:"ばなな", sp:"バナナ",   ok:["ばなな"], near:["なな","ばな"]},
   {e:"🍓", w:"いちご",   ok:["いちご","苺"], near:["ちご"]},
   {e:"🍊", w:"みかん",   ok:["みかん","蜜柑"], near:["かん"]},
   {e:"🍇", w:"ぶどう",   ok:["ぶどう","葡萄"], near:["どう"]},
-  {e:"🍞", w:"ぱん",     ok:["ぱん"], near:["ぱんぱん"]},
+  {e:"🍞", w:"ぱん", sp:"パン",     ok:["ぱん"], near:["ぱんぱん"]},
   {e:"🍙", w:"おにぎり", ok:["おにぎり","おむすび","お握り"], near:["にぎり"]},
   {e:"🐱", w:"ねこ",     ok:["ねこ","猫"], near:["にゃんにゃん","にゃー","にゃあ","ねこちゃん"]},
   {e:"🐶", w:"いぬ",     ok:["いぬ","犬"], near:["わんわん","わんちゃん","わん"]},
   {e:"🐘", w:"ぞう",     ok:["ぞう","象","ぞうさん"], near:["そう","ぞー"]},
   {e:"🐰", w:"うさぎ",   ok:["うさぎ","兎"], near:["うさちゃん","うさ","さぎ"]},
-  {e:"🦁", w:"らいおん", ok:["らいおん"], near:["がおー","がお","おん"]},
+  {e:"🦁", w:"らいおん", sp:"ライオン", ok:["らいおん"], near:["がおー","がお","おん"]},
   {e:"🐟", w:"さかな",   ok:["さかな","魚"], near:["かな","おさかな"]},
   {e:"🐦", w:"とり",     ok:["とり","鳥","ことり","小鳥"], near:["ぴよぴよ","ぴよ","とりさん"]},
   {e:"🚗", w:"くるま",   ok:["くるま","車"], near:["ぶーぶー","ぶーぶ","ぶぶ"]},
   {e:"🚃", w:"でんしゃ", ok:["でんしゃ","電車"], near:["がたんごとん","しゃ","でんでん"]},
-  {e:"⚽", w:"ぼーる",   ok:["ぼーる","ボール"], near:["ぼる","ぼう"]},
+  {e:"⚽", w:"ぼーる", sp:"ボール",   ok:["ぼーる","ボール"], near:["ぼる","ぼう"]},
   {e:"👟", w:"くつ",     ok:["くつ","靴"], near:["くっく","くっつ"]},
   {e:"🌸", w:"はな",     ok:["はな","花","おはな","お花"], near:["鼻","はなちゃん"]},
   {e:"⭐", w:"ほし",     ok:["ほし","星","おほしさま","お星様"], near:["きらきら","ほしさま"]},
@@ -225,6 +226,16 @@ function say(text, cb){
   }catch(e){ fireSaid(id); }
 }
 
+/* ===== 話しかけのバリエーション（毎回同じだと機械っぽいので） ===== */
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const spk = w => w.sp || w.w;
+const ASK = ["これ、なあに？", "これは、なにかな？", "なんだろう？ いってみて！", "これ、なんて いうのかな？"];
+const PRAISE = {
+  5: w => pick([`すごーい！ ${spk(w)}、せいかい！`, `やったね！ ${spk(w)}だね！`, `じょうず、じょうず！ ${spk(w)}！`, `ピンポーン！ ${spk(w)}でした！`]),
+  3: w => pick([`おしい！ ${spk(w)}、だよ。`, `いいね！ ${spk(w)}、って いえるかな？`, `じょうず！ これは、${spk(w)}だよ。`]),
+  1: w => pick([`いえたね！ これは、${spk(w)}だよ。`, `がんばったね！ ${spk(w)}、だよ。`])
+};
+
 /* ===== 状態 ===== */
 let points = parseInt(store("kg_points")||"0",10) || 0;
 let current = null, lastIdx = -1, started = false, inReward = false;
@@ -244,7 +255,7 @@ function nextQuestion(){
   lastIdx=i; current=WORDS[i];
   $("pic").textContent=current.e; $("status").textContent="";
   renderStars(); show("quiz");
-  say("これ なあに？", ()=> startListening());
+  say(pick(ASK), ()=> startListening());
 }
 
 /* --- 聞き取り：共通の処理 --- */
@@ -321,17 +332,17 @@ function abortListening(){
 /* ===== 採点 ===== */
 function award(pts, heard){
   abortListening();
-  points += pts; store("kg_points", points);
-  const msg = {5:["🎉","せいかい！すごい！","すごーい！ " + current.w + "！"],
-               3:["😊","おしい！じょうず！","じょうず！ " + current.w + " だね"],
-               1:["👏","いえたね！","いえたね！ " + current.w + " だよ"]}[pts];
+  points = Math.min(GOAL, points + pts); store("kg_points", points);   // 5点を超えた分は切り捨て
+  const msg = {5:["🎉","せいかい！すごい！"],
+               3:["😊","おしい！じょうず！"],
+               1:["👏","いえたね！"]}[pts].concat([PRAISE[pts](current)]);
   $("fbEmoji").textContent=msg[0]; $("fbPts").textContent="+"+pts; $("fbMsg").textContent=msg[1];
   $("fbPts").style.color = pts===5?"var(--good)":pts===3?"var(--mid)":"var(--low)";
   $("heard").textContent = heard ? "きこえた：「"+heard+"」" : "";
   show("feedback"); beep(SFX[pts]); if(pts>=3) confetti(pts===5?30:12);
   setTimeout(()=> say(msg[2]), 600);
   setTimeout(()=>{
-    if(points>=GOAL){ points-=GOAL; store("kg_points",points); startReward(); }
+    if(points>=GOAL){ points=0; store("kg_points",points); startReward(); }
     else nextQuestion();
   }, 3200);
 }
@@ -356,7 +367,7 @@ function startReward(resumeEnd){
     if(NATIVE) endAt = parseInt(Android.startReward(rewardTotal),10);
     else { endAt = Date.now()+rewardTotal*1000; store("kg_rewardEnd", endAt); }
     confetti(40);
-    say("やったね！ スマホじかんだよ！");
+    say(pick(["やったー！ スマホじかんだよ！", "すごいね！ スマホで あそんでいいよ！"]));
     // Android：少ししたらホーム画面へ出して自由に使えるようにする
     if(NATIVE) setTimeout(()=>{ if(inReward) Android.goHome(); }, 3500);
   }
@@ -380,7 +391,7 @@ function endReward(playSound){
   inReward=false; clearInterval(rewardTick);
   if(NATIVE) Android.clearReward(); else store("kg_rewardEnd","0");
   if(playSound){ beep(SFX.end); try{ navigator.vibrate && navigator.vibrate([300,150,300]); }catch(e){} }
-  say("おしまい！ つぎの もんだいだよ", ()=> nextQuestion());
+  say(pick(["はい、おしまい！ つぎの もんだいだよ。", "じかんだよ！ また いっしょに やろうね。"]), ()=> nextQuestion());
 }
 
 /* ===== アプリが前面に戻ったとき（Android） ===== */
@@ -424,7 +435,14 @@ $("nextQBtn").onclick=()=>{
 };
 $("micBtn").onclick=()=>{ if(!listening) startListening(); };
 document.querySelectorAll("[data-pts]").forEach(b=> b.onclick=()=> award(parseInt(b.dataset.pts,10),""));
-$("hintBtn").onclick=()=>{ abortListening(); say(current.w, ()=> startListening()); };
+$("hintBtn").onclick=()=>{ abortListening(); say(spk(current), ()=> startListening()); };
+/* おうちのひと：声をきりかえる（端末にある日本語の声を順番に） */
+$("voiceBtn").onclick=()=>{
+  abortListening();
+  const n = NATIVE ? Android.nextVoice() : "";
+  $("status").textContent = n ? "こえ "+n : "この端末では声をえらべません";
+  say("こんにちは！ これ、なあに？", ()=> startListening());
+};
 $("skipBtn").onclick=()=>{ abortListening(); nextQuestion(); };
 
 /* おうちのひと：終了（3秒長押し） */
