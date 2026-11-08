@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- りんごのアイコン（108dp中、中央66dpが表示領域） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#E8453C"
+        android:pathData="M54,40 C44,32 30,36 30,52 C30,68 42,80 50,80 C52,80 53,79 54,79 C55,79 56,80 58,80 C66,80 78,68 78,52 C78,36 64,32 54,40 Z" />
+    <path android:fillColor="#7A4A2A"
+        android:pathData="M53,40 L52,30 L56,30 L56,40 Z" />
+    <path android:fillColor="#3DBE7A"
+        android:pathData="M56,33 C60,26 68,26 70,28 C66,34 60,35 56,33 Z" />
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.5"
+        android:pathData="M38,50 C38,44 42,42 45,43 C42,46 41,50 41,54 C39,55 38,53 38,50 Z" />
+</vector>
