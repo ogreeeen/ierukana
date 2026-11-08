@@ -1,21 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- バナナのアイコン（108dp中、中央の円の範囲に収まるよう縮小） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
     <group
-        android:pivotX="58.5" android:pivotY="60"
+        android:pivotX="52.5" android:pivotY="50"
         android:scaleX="0.78" android:scaleY="0.78"
-        android:translateX="-4.5" android:translateY="-6">
-        <path android:fillColor="#F5C518"
-            android:pathData="M30,40 C26,70 50,90 80,82 C84,81 87,79 88,76 C83,75 78,75 73,75 C56,73 45,60 46,40 Z" />
-        <path android:fillColor="#E3AA00"
-            android:pathData="M46,40 C45,60 56,73 73,75 C78,75 83,75 88,76 C86,78 82,79 77,79 C57,79 42,64 42,40 Z" />
-        <path android:fillColor="#FFE68A"
-            android:pathData="M33,46 C32,64 44,78 62,82 C46,74 37,62 37,46 Z" />
-        <path android:fillColor="#7A5A2A"
-            android:pathData="M33,41 L35,30 L41,30 L43,41 Z" />
-        <path android:fillColor="#5A4020"
-            android:pathData="M85.4,76.5 A2.6,2.6 0 1,0 90.6,76.5 A2.6,2.6 0 1,0 85.4,76.5 Z" />
+        android:translateX="1.5" android:translateY="4">
+        <!-- 軸 -->
+        <path android:fillColor="#7D8A2E"
+            android:pathData="M66,33 L70,22 C71,20 74,20 75,22 L74,34 Z" />
+        <path android:fillColor="#5B4A22"
+            android:pathData="M69.5,23 L71,19.5 C72,18.5 74.5,18.5 75.5,20 L75,23 Z" />
+        <!-- 本体（グラデーション） -->
+        <path android:pathData="M64,32 C68,30 73,31 75,34 C82,56 70,80 38,82 C33,82 28,81 25,79 C24,77 25,75 27,75 C48,72 62,58 64,32 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient android:type="linear"
+                    android:startX="24" android:startY="30"
+                    android:endX="82" android:endY="82"
+                    android:startColor="#FFE873" android:endColor="#F0B400" />
+            </aapt:attr>
+        </path>
+        <!-- 影 -->
+        <path android:fillColor="#E0A100" android:fillAlpha="0.75"
+            android:pathData="M75,34 C82,56 70,80 38,82 C33,82 28,81 25,79 C34,79 40,78 46,76 C66,70 76,54 72,34 Z" />
+        <!-- 稜線のハイライト -->
+        <path android:strokeColor="#FFF3B0" android:strokeWidth="2.2"
+            android:strokeLineCap="round" android:fillColor="#00000000"
+            android:pathData="M66,40 C67,56 56,68 36,76" />
+        <!-- 先端 -->
+        <path android:fillColor="#4A3418"
+            android:pathData="M25,79 C23.5,78 23.5,75.5 25.5,75 L28,75 C27,76.5 27,78 28.5,80 Z" />
     </group>
 </vector>

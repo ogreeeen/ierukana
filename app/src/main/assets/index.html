@@ -57,7 +57,7 @@
 <section id="start" class="screen on">
   <div style="font-size:96px">🍎🐶🚗</div>
   <h1>いえるかな？</h1>
-  <p>えをみて なまえを いってみよう！<br>⭐が5つたまったら スマホじかん</p>
+  <p>えをみて なまえを いってみよう！<br>⭐が3つたまったら スマホじかん</p>
   <button class="bigbtn" id="startBtn">はじめる</button>
   <p class="small" id="supportMsg" style="margin-top:24px"></p>
 </section>
@@ -83,8 +83,8 @@
   <div class="status" id="status"></div>
   <div class="parent">
     <span>おうちのひと：</span>
-    <button data-pts="5">◎5</button>
-    <button data-pts="3">○3</button>
+    <button data-pts="3">◎3</button>
+    <button data-pts="2">○2</button>
     <button data-pts="1">△1</button>
     <button id="hintBtn">🔊</button>
     <button id="voiceBtn">🗣</button>
@@ -127,12 +127,13 @@
 
 <script>
 /* ===== 設定 ===== */
-const GOAL = 5;            // 何点でごほうび
+const GOAL = 3;            // 何点でごほうび（上限）
 const REWARD_SEC = 180;    // ごほうび時間（秒）
 
 /* ===== ことばリスト =====
-   ok:   言えたら5点（ひらがな・カタカナ・漢字の表記ゆれ）
-   near: 3点にする幼児語や言い換え */
+   ok:   完璧＝3点（ひらがな・カタカナ・漢字の表記ゆれ）
+   near: おしい＝2点にする幼児語や言い換え
+   それ以外のことば：いえた＝1点 */
 const WORDS = [
   {e:"🍎", w:"りんご",   ok:["りんご","林檎"], near:["りんごちゃん"]},
   {e:"🍌", w:"ばなな", sp:"バナナ",   ok:["ばなな"], near:["なな","ばな"]},
@@ -181,10 +182,10 @@ function judge(word, alts){
   let best = 0, heard = alts[0]||"";
   for(const raw of alts){
     const a = norm(raw); if(!a) continue;
-    if(ok.some(o => a===o || a.includes(o))) return {pts:5, heard:raw};
+    if(ok.some(o => a===o || a.includes(o))) return {pts:3, heard:raw};
     const sim = 1 - lev(a,target)/Math.max(a.length,target.length);
     if(near.some(o => a===o || a.includes(o)) || sim >= 0.5 || (a[0]===target[0] && Math.abs(a.length-target.length)<=2)){
-      if(best<3){best=3; heard=raw;}
+      if(best<2){best=2; heard=raw;}
     } else if(best<1){best=1;}
   }
   return {pts: best||1, heard};
@@ -204,8 +205,8 @@ function beep(notes){
   });
 }
 const SFX = {
-  5:[[523,0,.15],[659,.12,.15],[784,.24,.15],[1047,.36,.4]],
-  3:[[523,0,.15],[784,.15,.35]],
+  3:[[523,0,.15],[659,.12,.15],[784,.24,.15],[1047,.36,.4]],
+  2:[[523,0,.15],[784,.15,.35]],
   1:[[660,0,.3]],
   end:[[784,0,.3],[659,.3,.3],[523,.6,.5],[784,1.2,.3],[659,1.5,.3],[523,1.8,.6]]
 };
@@ -231,13 +232,13 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 const spk = w => w.sp || w.w;
 const ASK = ["これ、なあに？", "これは、なにかな？", "なんだろう？ いってみて！", "これ、なんて いうのかな？"];
 const PRAISE = {
-  5: w => pick([`すごーい！ ${spk(w)}、せいかい！`, `やったね！ ${spk(w)}だね！`, `じょうず、じょうず！ ${spk(w)}！`, `ピンポーン！ ${spk(w)}でした！`]),
-  3: w => pick([`おしい！ ${spk(w)}、だよ。`, `いいね！ ${spk(w)}、って いえるかな？`, `じょうず！ これは、${spk(w)}だよ。`]),
+  3: w => pick([`すごーい！ ${spk(w)}、せいかい！`, `やったね！ ${spk(w)}だね！`, `じょうず、じょうず！ ${spk(w)}！`, `ピンポーン！ ${spk(w)}でした！`]),
+  2: w => pick([`おしい！ ${spk(w)}、だよ。`, `いいね！ ${spk(w)}、って いえるかな？`, `じょうず！ これは、${spk(w)}だよ。`]),
   1: w => pick([`いえたね！ これは、${spk(w)}だよ。`, `がんばったね！ ${spk(w)}、だよ。`])
 };
 
 /* ===== 状態 ===== */
-let points = parseInt(store("kg_points")||"0",10) || 0;
+let points = Math.min(GOAL, parseInt(store("kg_points")||"0",10) || 0);
 let current = null, lastIdx = -1, started = false, inReward = false;
 let listening=false, gotSound=false, gotResult=false, alts=[], listenTimer=null;
 
@@ -269,7 +270,7 @@ function onAlts(list, isFinal){
   if(!list.length) return;
   alts=list;
   const j=judge(current, alts);
-  if(j.pts===5 || isFinal){ gotResult=true; stopListening(); award(j.pts, j.heard); }
+  if(j.pts===3 || isFinal){ gotResult=true; stopListening(); award(j.pts, j.heard); }
 }
 function onListenEnd(){
   listening=false; $("micBtn").classList.remove("listening"); clearTimeout(listenTimer);
@@ -332,14 +333,14 @@ function abortListening(){
 /* ===== 採点 ===== */
 function award(pts, heard){
   abortListening();
-  points = Math.min(GOAL, points + pts); store("kg_points", points);   // 5点を超えた分は切り捨て
-  const msg = {5:["🎉","せいかい！すごい！"],
-               3:["😊","おしい！じょうず！"],
+  points = Math.min(GOAL, points + pts); store("kg_points", points);   // 3点を超えた分は切り捨て
+  const msg = {3:["🎉","かんぺき！"],
+               2:["😊","おしい！"],
                1:["👏","いえたね！"]}[pts].concat([PRAISE[pts](current)]);
   $("fbEmoji").textContent=msg[0]; $("fbPts").textContent="+"+pts; $("fbMsg").textContent=msg[1];
-  $("fbPts").style.color = pts===5?"var(--good)":pts===3?"var(--mid)":"var(--low)";
+  $("fbPts").style.color = pts===3?"var(--good)":pts===2?"var(--mid)":"var(--low)";
   $("heard").textContent = heard ? "きこえた：「"+heard+"」" : "";
-  show("feedback"); beep(SFX[pts]); if(pts>=3) confetti(pts===5?30:12);
+  show("feedback"); beep(SFX[pts]); if(pts>=2) confetti(pts===3?30:12);
   setTimeout(()=> say(msg[2]), 600);
   setTimeout(()=>{
     if(points>=GOAL){ points=0; store("kg_points",points); startReward(); }
